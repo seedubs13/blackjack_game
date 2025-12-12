@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classroom Blackjack</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .card {
+            width: 80px; height: 110px; border-radius: 8px; background-color: white; border: 1px solid #ccc;
+            display: flex; justify-content: center; align-items: center; font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative;
+        }
+        .card.red { color: #D92D20; }
+        .card.black { color: #101828; }
+        .suit-center { font-size: 36px; }
+        .corner { position: absolute; display: flex; flex-direction: column; align-items: center; font-size: 16px; line-height: 1; }
+        .corner.top { top: 6px; left: 6px; }
+        .corner.bottom { bottom: 6px; right: 6px; transform: rotate(180deg); }
+        .card-back { background: repeating-linear-gradient(45deg, #4B5563, #4B5563 10px, #6B7280 10px, #6B7280 20px); }
+        .highlight-action { animation: pulse 1.5s infinite; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.6); }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+        }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .kick-btn { z-index: 10; cursor: pointer; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
+
+    <div id="app-container" class="w-full max-w-7xl mx-auto">
+        <!-- Join Screen -->
+        <div id="join-screen" class="bg-white p-8 rounded-xl shadow-lg max-w-md mx-auto text-center">
+            <h1 class="text-3xl font-bold mb-2">Classroom Blackjack</h1>
+            <p class="text-gray-600 mb-6">Join a game or start a new one.</p>
+            <div class="space-y-4">
+                <input id="player-name-input" type="text" placeholder="Enter Your Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <input id="game-id-input" type="text" placeholder="Enter Game ID (if joining)" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" autocapitalize="characters">
+                <fieldset class="border border-gray-300 p-3 rounded-lg text-left">
+                    <legend class="text-sm font-medium text-gray-700 px-1">Select Your Group</legend>
+                    <div class="flex justify-around mt-1">
+                        <div><input type="radio" id="group-a" name="group" value="A" class="mr-2" checked><label for="group-a">Group A</label></div>
+                        <div><input type="radio" id="group-b" name="group" value="B" class="mr-2"><label for="group-b">Group B</label></div>
+                        <div><input type="radio" id="group-c" name="group" value="C" class="mr-2"><label for="group-c">Group C</label></div>
+                    </div>
+                </fieldset>
+                <button id="join-game-btn" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-700 transition">Join Game</button>
+                <div class="relative flex py-2 items-center"><div class="flex-grow border-t border-gray-300"></div><span class="flex-shrink mx-4 text-gray-500">OR</span><div class="flex-grow border-t border-gray-300"></div></div>
+                <button id="create-game-btn" class="w-full bg-green-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-green-700 transition">Create New Game (Host)</button>
+            </div>
+            <p id="error-message" class="text-red-500 mt-4 h-5"></p>
+        </div>
+
+        <!-- Main Game Area -->
+        <div id="game-area" class="hidden">
+            <div id="host-controls" class="hidden bg-white p-4 rounded-xl shadow-md mb-6 text-center">
+                <h2 class="text-2xl font-bold">Host Panel</h2>
+                <div class="flex items-center justify-center space-x-4 mt-2 flex-wrap gap-y-2">
+                    <p class="text-lg">Game ID: <strong id="game-id-display" class="text-blue-600 select-all"></strong></p>
+                    <button id="deal-hand-btn" class="bg-green-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-green-700 transition">Start Betting</button>
+                    <!-- FORCE DEAL BUTTON -->
+                    <button id="force-deal-btn" class="hidden bg-red-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-700 transition" title="Force Deal (Ignore Waiting Players)">Force Deal ⚠️</button>
+                    <button id="show-summary-btn" class="bg-indigo-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-indigo-700 transition">Show Summary</button>
+                </div>
+            </div>
+
+            <div id="game-table" class="space-y-8">
+                <div id="dealer-area">
+                    <h2 class="text-xl font-semibold mb-2 text-center">Dealer's Hand</h2>
+                    <div id="dealer-cards" class="flex justify-center items-center space-x-3 min-h-[120px] bg-gray-200 p-4 rounded-lg"></div>
+                    <p class="text-center font-bold text-lg mt-2">Score: <span id="dealer-score">0</span></p>
+                </div>
+
+                <div id="player-area" class="hidden bg-blue-50 border-2 border-blue-500 p-6 rounded-xl shadow-lg">
+                    <h2 class="text-xl font-semibold mb-3 text-center text-blue-800">Your Hand (<span id="local-player-name">Player</span>)</h2>
+                    <div id="player-cards" class="flex justify-center items-center space-x-3 min-h-[120px]"></div>
+                    <p class="text-center font-bold text-lg mt-2">Your Score: <span id="player-score">0</span></p>
+                    <p class="text-center font-medium text-md">Bankroll: $<span id="player-bankroll">1000</span> | Bet: $<span id="player-bet">0</span></p>
+                    <p id="player-status" class="text-center text-2xl font-bold h-8 mt-2"></p>
+                    <div id="betting-controls" class="hidden mt-4 flex flex-col items-center space-y-3">
+                        <label for="bet-amount" class="font-semibold">Bet Amount: $<span id="bet-amount-value">50</span></label>
+                        <input type="range" id="bet-amount" min="10" max="200" value="50" step="10" class="w-64">
+                        <button id="place-bet-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition w-48">Place Bet</button>
+                    </div>
+                    <div id="action-controls" class="hidden mt-4 flex justify-center items-center space-x-2 md:space-x-4 flex-wrap">
+                        <button id="hit-btn" class="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-blue-700 transition flex-grow md:flex-grow-0">Hit</button>
+                        <button id="stand-btn" class="bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-800 transition flex-grow md:flex-grow-0">Stand</button>
+                        <button id="double-down-btn" class="bg-yellow-500 text-white font-semibold py-2 px-6 rounded-lg hover:bg-yellow-600 transition flex-grow md:flex-grow-0">Double Down</button>
+                        <button id="show-odds-btn" class="bg-purple-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-purple-700 transition flex-grow md:flex-grow-0">Show Odds</button>
+                    </div>
+                </div>
+
+                <div id="all-players-area" class="hidden">
+                     <h2 class="text-xl font-semibold mb-2 text-center">All Players</h2>
+                    <div id="players-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="summary-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
+            <h2 class="text-2xl font-bold mb-6">Group Summary</h2>
+            <div id="summary-content" class="space-y-4 text-left"></div>
+            <button id="close-summary-btn" class="mt-8 bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg hover:bg-gray-700 transition w-full">Close</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, deleteDoc, updateDoc, onSnapshot, collection, writeBatch, runTransaction, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- FIREBASE CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCoqv8A0rYgKpsBgX4hsUpqziQgaCfP2AQ",
+            authDomain: "classroom-blackjack.firebaseapp.com",
+            projectId: "classroom-blackjack",
+            storageBucket: "classroom-blackjack.firebasestorage.app",
+            messagingSenderId: "1022908396548",
+            appId: "1:1022908396548:web:6254d2c45814c24c3b3151"
+        };
+        // ------------------------------
+
+        // Constants & State
+        const SUITS = ['♠', '♣', '♥', '♦'];
+        const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+        let db, auth, gameId, userId, isHost = false;
+        let localPlayerState = {}, allPlayersState = {}, currentGameState = {};
+        const appId = 'classroom-blackjack'; // Fixed ID for standalone
+
+        // Initialization
+        async function initialize() {
+            if (!firebaseConfig.apiKey) {
+                document.getElementById('error-message').textContent = "Error: Missing Firebase Keys. See code comments.";
+                return;
+            }
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            try {
+                await signInAnonymously(auth);
+                userId = auth.currentUser.uid;
+            } catch (error) {
+                console.error("Auth failed:", error);
+                document.getElementById('error-message').textContent = "Connection failed. Enable Anonymous Auth in Firebase.";
+            }
+        }
+        initialize();
+
+        // --- DOM Elements ---
+        const els = {
+            joinScreen: document.getElementById('join-screen'),
+            createGameBtn: document.getElementById('create-game-btn'),
+            joinGameBtn: document.getElementById('join-game-btn'),
+            gameArea: document.getElementById('game-area'),
+            hostControls: document.getElementById('host-controls'),
+            playerArea: document.getElementById('player-area'),
+            allPlayersArea: document.getElementById('all-players-area'),
+            playerName: document.getElementById('player-name-input'),
+            gameId: document.getElementById('game-id-input'),
+            errMsg: document.getElementById('error-message'),
+            gameIdDisplay: document.getElementById('game-id-display'),
+            dealBtn: document.getElementById('deal-hand-btn'),
+            forceDealBtn: document.getElementById('force-deal-btn'), 
+            betSlider: document.getElementById('bet-amount'),
+            betVal: document.getElementById('bet-amount-value'),
+            betControls: document.getElementById('betting-controls'),
+            actControls: document.getElementById('action-controls'),
+            pStatus: document.getElementById('player-status'),
+            pHand: document.getElementById('player-cards'),
+            pScore: document.getElementById('player-score'),
+            pBank: document.getElementById('player-bankroll'),
+            pBet: document.getElementById('player-bet'),
+            dHand: document.getElementById('dealer-cards'),
+            dScore: document.getElementById('dealer-score'),
+            pName: document.getElementById('local-player-name'),
+            grid: document.getElementById('players-grid'),
+            modal: document.getElementById('summary-modal'),
+            summary: document.getElementById('summary-content'),
+            placeBetBtn: document.getElementById('place-bet-btn'),
+            hitBtn: document.getElementById('hit-btn'),
+            standBtn: document.getElementById('stand-btn'),
+            doubleBtn: document.getElementById('double-down-btn'),
+            oddsBtn: document.getElementById('show-odds-btn'),
+            summaryBtn: document.getElementById('show-summary-btn'),
+            closeSummaryBtn: document.getElementById('close-summary-btn')
+        };
+
+        // --- Host Actions ---
+        async function createGame() {
+            isHost = true;
+            const name = els.playerName.value.trim();
+            if (!name) return els.errMsg.textContent = "Enter name.";
+            
+            gameId = Math.random().toString(36).substring(2, 7).toUpperCase();
+            const deck = shuffle(buildDeck());
+            
+            const batch = writeBatch(db);
+            // Host is NOT added to players collection
+            batch.set(doc(db, `games/${gameId}`), { state: 'waiting', dealerHand: [], deck, hostId: userId, reveal: false });
+            await batch.commit();
+            joinSession(gameId);
+        }
+
+        async function startBetting() {
+            els.dealBtn.disabled = true;
+            if (els.forceDealBtn) els.forceDealBtn.classList.add('hidden');
+            await updateDoc(doc(db, `games/${gameId}`), { state: 'betting', reveal: false, dealerHand: [] });
+            const snapshot = await getDocs(collection(db, `games/${gameId}/players`));
+            const batch = writeBatch(db);
+            snapshot.forEach(d => batch.update(d.ref, { status: 'waiting', bet: 0, hand: [] }));
+            await batch.commit();
+        }
+
+        async function dealCards() {
+            if (els.forceDealBtn) els.forceDealBtn.classList.add('hidden');
+            await runTransaction(db, async (t) => {
+                const gRef = doc(db, `games/${gameId}`);
+                const gDoc = await t.get(gRef);
+                if (!gDoc.exists()) throw "No game";
+                
+                let deck = gDoc.data().deck;
+                if (deck.length < 50) deck = shuffle(buildDeck());
+                
+                const pRef = collection(db, `games/${gameId}/players`);
+                const pSnaps = await getDocs(pRef);
+                
+                pSnaps.forEach(p => {
+                    // Deal to ANYONE with a bet > 0, essentially forcing valid players into 'playing' state
+                    const data = p.data();
+                    if (data.bet > 0 || data.status === 'betPlaced') {
+                        t.update(p.ref, { hand: [deck.pop(), deck.pop()], status: 'playing' });
+                    }
+                });
+                t.update(gRef, { state: 'playing', dealerHand: [deck.pop(), deck.pop()], deck });
+            });
+        }
+
+        async function kickPlayer(pid) {
+            if(!confirm("Kick this player?")) return;
+            try {
+                await deleteDoc(doc(db, `games/${gameId}/players/${pid}`));
+            } catch(e) { console.error("Kick failed", e); }
+        }
+
+        // --- Player Actions ---
+        async function joinGame() {
+            const name = els.playerName.value.trim();
+            const gid = els.gameId.value.trim().toUpperCase();
+            if (!name || !gid) return els.errMsg.textContent = "Enter name & ID.";
+            
+            const gDoc = await getDoc(doc(db, `games/${gid}`));
+            if (!gDoc.exists()) return els.errMsg.textContent = "Game not found.";
+            
+            await setDoc(doc(db, `games/${gid}/players/${userId}`), {
+                name, group: document.querySelector('input[name="group"]:checked').value,
+                bankroll: 1000, bet: 0, hand: [], status: 'waiting'
+            });
+            joinSession(gid);
+        }
+
+        async function placeBet() {
+            const amt = parseInt(els.betSlider.value);
+            if (amt > localPlayerState.bankroll) return els.pStatus.textContent = "No funds!";
+            await updateDoc(doc(db, `games/${gameId}/players/${userId}`), {
+                bet: amt, bankroll: localPlayerState.bankroll - amt, status: 'betPlaced'
+            });
+            els.betControls.classList.add('hidden');
+        }
+
+        async function hit() {
+            removeHighlights();
+            await runTransaction(db, async (t) => {
+                const gRef = doc(db, `games/${gameId}`);
+                const pRef = doc(db, `games/${gameId}/players/${userId}`);
+                const g = (await t.get(gRef)).data();
+                const p = (await t.get(pRef)).data();
+                let deck = g.deck, hand = p.hand;
+                if(deck.length === 0) deck = shuffle(buildDeck()); 
+                hand.push(deck.pop());
+                const score = calcScore(hand);
+                t.update(gRef, { deck });
+                t.update(pRef, { hand, status: score > 21 ? 'busted' : 'playing' });
+            });
+        }
+
+        async function stand() {
+            removeHighlights();
+            await updateDoc(doc(db, `games/${gameId}/players/${userId}`), { status: 'stood' });
+        }
+
+        async function doubleDown() {
+            removeHighlights();
+            if (localPlayerState.bankroll < localPlayerState.bet) return hit();
+            await runTransaction(db, async (t) => {
+                const gRef = doc(db, `games/${gameId}`);
+                const pRef = doc(db, `games/${gameId}/players/${userId}`);
+                const g = (await t.get(gRef)).data();
+                const p = (await t.get(pRef)).data();
+                let deck = g.deck, hand = p.hand;
+                if(deck.length === 0) deck = shuffle(buildDeck());
+                hand.push(deck.pop());
+                t.update(gRef, { deck });
+                t.update(pRef, { 
+                    hand, status: 'stood', bankroll: p.bankroll - p.bet, bet: p.bet * 2 
+                });
+            });
+        }
+
+        // --- Logic & Listeners ---
+        function joinSession(gid) {
+            gameId = gid;
+            els.joinScreen.classList.add('hidden');
+            els.gameArea.classList.remove('hidden');
+            
+            // Updated: Hide player area for host
+            if (isHost) {
+                els.playerArea.classList.add('hidden');
+                els.hostControls.classList.remove('hidden');
+                els.allPlayersArea.classList.remove('hidden');
+                els.gameIdDisplay.textContent = gameId;
+            } else {
+                els.playerArea.classList.remove('hidden');
+            }
+
+            onSnapshot(doc(db, `games/${gameId}`), d => handleGame(d.data()));
+            onSnapshot(collection(db, `games/${gameId}/players`), s => {
+                const players = {};
+                s.forEach(d => players[d.id] = d.data());
+                handlePlayers(players);
+            });
+        }
+
+        function handleGame(g) {
+            if (!g) return;
+            currentGameState = g;
+            renderHand(els.dHand, g.dealerHand, g.reveal, true);
+            els.dScore.textContent = g.reveal ? calcScore(g.dealerHand) : '?';
+            updateControls(); // Consolidated UI Update
+        }
+
+        function handlePlayers(ps) {
+            allPlayersState = ps;
+            localPlayerState = ps[userId] || {};
+            
+            const p = localPlayerState;
+            if (p.name) {
+                els.pName.textContent = `${p.name} (Group ${p.group})`;
+                els.pBank.textContent = p.bankroll;
+                els.pBet.textContent = p.bet;
+                renderHand(els.pHand, p.hand, true, false);
+                els.pScore.textContent = calcScore(p.hand);
+                
+                if (p.status === 'busted') els.pStatus.textContent = "BUST!";
+                else if (p.status === 'stood') els.pStatus.textContent = "Stood";
+                else if (calcScore(p.hand)===21 && p.hand.length===2) els.pStatus.textContent = "BLACKJACK!";
+                else els.pStatus.textContent = "";
+
+                const canDouble = p.bankroll >= p.bet;
+                if (els.doubleBtn) els.doubleBtn.disabled = !(p.hand.length === 2 && canDouble);
+            }
+
+            if (isHost) {
+                renderHostGrid(ps);
+                // Auto-deal Logic
+                if (currentGameState.state === 'betting') {
+                    // Check if there are players and EVERY player is either 'betPlaced' or broke
+                    const psList = Object.values(ps);
+                    const ready = psList.length > 0 && psList.every(pl => pl.status === 'betPlaced' || (pl.status === 'waiting' && pl.bankroll === 0));
+                    
+                    if (ready) {
+                        setTimeout(dealCards, 1500); 
+                    } else if (psList.length > 0) {
+                        // If players exist but aren't ready, show force button
+                        if(els.forceDealBtn) els.forceDealBtn.classList.remove('hidden');
+                    }
+                }
+                
+                // End Round Logic
+                const active = Object.values(ps).filter(pl => pl.status === 'playing');
+                if (currentGameState.state === 'playing' && active.length === 0) finishRound();
+            }
+            updateControls(); // Consolidated UI Update
+        }
+
+        // New function to handle UI visibility to prevent race conditions
+        function updateControls() {
+            const g = currentGameState;
+            if (!g || !g.state) return;
+
+            // Host button states
+            if (isHost) {
+                els.dealBtn.disabled = (g.state !== 'waiting' && g.state !== 'finished');
+                if (g.state !== 'betting') {
+                    if(els.forceDealBtn) els.forceDealBtn.classList.add('hidden');
+                }
+            }
+
+            // Player button states
+            if (!isHost) {
+                if (g.state === 'betting' && localPlayerState.status === 'waiting') {
+                    els.betControls.classList.remove('hidden');
+                    els.actControls.classList.add('hidden');
+                    els.pStatus.textContent = "Place your bet!";
+                    // Init slider max
+                    const max = Math.min(200, localPlayerState.bankroll);
+                    els.betSlider.max = max > 0 ? max : 10;
+                    if(parseInt(els.betSlider.value) > max) els.betSlider.value = max;
+                    els.betVal.textContent = els.betSlider.value;
+                } else if (g.state === 'playing' && localPlayerState.status === 'playing') {
+                    els.betControls.classList.add('hidden');
+                    els.actControls.classList.remove('hidden');
+                } else {
+                    // Waiting, Finished, or other status
+                    els.betControls.classList.add('hidden');
+                    els.actControls.classList.add('hidden');
+                    if (g.state === 'waiting') els.pStatus.textContent = "Waiting for host...";
+                }
+            }
+        }
+
+        function renderHostGrid(ps) {
+            els.grid.innerHTML = '';
+            Object.keys(ps).forEach(pid => {
+                const pl = ps[pid];
+                const col = pl.group==='A'?'red':pl.group==='B'?'blue':'green';
+                const div = document.createElement('div');
+                div.className = 'bg-white p-3 rounded shadow text-center relative';
+                let st = pl.status==='betPlaced'?'Bet Placed':pl.status;
+                
+                const kickBtn = document.createElement('button');
+                kickBtn.className = 'absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-700 kick-btn';
+                kickBtn.textContent = '×';
+                kickBtn.title = "Kick Player";
+                kickBtn.onclick = (e) => { e.stopPropagation(); kickPlayer(pid); };
+                
+                div.innerHTML = `<p class="font-bold">${pl.name} <span class="bg-${col}-200 text-${col}-800 px-1 rounded">${pl.group}</span></p><p>Bank: ${pl.bankroll}</p><p class="text-sm">${st}</p>`;
+                div.appendChild(kickBtn);
+                els.grid.appendChild(div);
+            });
+        }
+
+        async function finishRound() {
+            const gRef = doc(db, `games/${gameId}`);
+            let g = (await getDoc(gRef)).data();
+            let deck = g.deck, dh = g.dealerHand;
+            
+            // Loop safety limiter for CodePen
+            let safety = 0;
+            while(calcScore(dh) < 17 && safety < 20) {
+                if(deck.length === 0) deck = shuffle(buildDeck());
+                dh.push(deck.pop());
+                safety++;
+            }
+            
+            await updateDoc(gRef, { deck, dealerHand: dh, reveal: true });
+            
+            const batch = writeBatch(db);
+            const snaps = await getDocs(collection(db, `games/${gameId}/players`));
+            const ds = calcScore(dh);
+            snaps.forEach(d => {
+                const p = d.data();
+                if(p.status === 'stood' || p.status === 'busted') {
+                    const ps = calcScore(p.hand);
+                    let nb = p.bankroll;
+                    if (ps <= 21) {
+                         if (ds > 21 || ps > ds) nb += p.bet * (ps===21&&p.hand.length===2 ? 2.5 : 2);
+                         else if (ps === ds) nb += p.bet;
+                    }
+                    batch.update(d.ref, { bankroll: nb });
+                }
+            });
+            await batch.commit();
+            await updateDoc(gRef, { state: 'finished' });
+        }
+
+        // Utils
+        function buildDeck() {
+            let d = [];
+            for(let i=0; i<6; i++) for(let s of SUITS) for(let r of RANKS) d.push({rank:r, suit:s});
+            return d;
+        }
+        function shuffle(d) {
+            for(let i=d.length-1; i>0; i--) { const j=Math.floor(Math.random()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
+            return d;
+        }
+        function calcScore(h) {
+            if(!h) return 0;
+            let s=0, a=0;
+            h.forEach(c => {
+                s += (['J','Q','K'].includes(c.rank) ? 10 : (c.rank==='A' ? 11 : parseInt(c.rank)));
+                if(c.rank==='A') a++;
+            });
+            while(s>21 && a>0) { s-=10; a--; }
+            return s;
+        }
+        function renderHand(el, h, reveal, isDealer) {
+            el.innerHTML = '';
+            if(!h || h.length===0) return;
+            h.forEach((c, i) => {
+                const div = document.createElement('div');
+                if(isDealer && i===1 && !reveal) {
+                    div.className = 'card card-back';
+                } else {
+                    div.className = `card ${['♥','♦'].includes(c.suit)?'red':'black'}`;
+                    div.innerHTML = `<div class="corner top"><span>${c.rank}</span><span>${c.suit}</span></div><div class="suit-center">${c.suit}</div><div class="corner bottom"><span>${c.rank}</span><span>${c.suit}</span></div>`;
+                }
+                el.appendChild(div);
+            });
+        }
+        function getBestAction() {
+             const h = localPlayerState.hand;
+             const s = calcScore(h);
+             const dCard = currentGameState.dealerHand[0];
+             const dVal = (!dCard) ? 0 : (['J','Q','K'].includes(dCard.rank)?10:(dCard.rank==='A'?11:parseInt(dCard.rank)));
+             
+             const hardTotal = h.reduce((a,c) => {
+                 if(['J','Q','K'].includes(c.rank)) return a+10;
+                 if(c.rank==='A') return a+1;
+                 return a+parseInt(c.rank);
+             }, 0);
+             const soft = s <= 21 && hardTotal !== s;
+
+             if (soft) {
+                 if (s >= 19) return 'stand';
+                 if (s === 18) return (dVal >= 2 && dVal <= 8) ? 'stand' : 'hit';
+                 return 'hit';
+             }
+
+             if(s>=17) return 'stand';
+             if(s<=11) return 'hit';
+             return dVal>=7 ? 'hit' : 'stand';
+        }
+        function showOdds() {
+             const action = getBestAction();
+             if(action==='hit') highlight('hit-btn');
+             if(action==='stand') highlight('stand-btn');
+        }
+        function highlight(id) {
+             const btn = document.getElementById(id);
+             btn.classList.add('highlight-action');
+             setTimeout(()=>btn.classList.remove('highlight-action'), 2000);
+        }
+        function removeHighlights() {}
+
+        // Events
+        if(els.createGameBtn) els.createGameBtn.addEventListener('click', createGame);
+        if(els.joinGameBtn) els.joinGameBtn.addEventListener('click', joinGame);
+        if(els.dealBtn) els.dealBtn.addEventListener('click', startBetting);
+        if(els.forceDealBtn) els.forceDealBtn.addEventListener('click', dealCards);
+        if(els.betSlider) els.betSlider.addEventListener('input', e => els.betVal.textContent = e.target.value);
+        if(els.placeBetBtn) els.placeBetBtn.addEventListener('click', placeBet);
+        if(els.hitBtn) els.hitBtn.addEventListener('click', hit);
+        if(els.standBtn) els.standBtn.addEventListener('click', stand);
+        if(els.doubleBtn) els.doubleBtn.addEventListener('click', doubleDown);
+        if(els.oddsBtn) els.oddsBtn.addEventListener('click', showOdds);
+        if(els.summaryBtn) els.summaryBtn.addEventListener('click', () => {
+             let t = {A:0, B:0, C:0};
+             Object.values(allPlayersState).forEach(p => t[p.group]+=p.bankroll);
+             els.summary.innerHTML = `<div class="p-2 bg-red-100 mb-2">Group A: $${t.A}</div><div class="p-2 bg-blue-100 mb-2">Group B: $${t.B}</div><div class="p-2 bg-green-100">Group C: $${t.C}</div>`;
+             els.modal.classList.remove('hidden');
+        });
+        if(els.closeSummaryBtn) els.closeSummaryBtn.addEventListener('click', () => els.modal.classList.add('hidden'));
+
+    </script>
+</body>
+</html>
