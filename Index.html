@@ -463,14 +463,40 @@
             const batch = writeBatch(db);
             const snaps = await getDocs(collection(db, `games/${gameId}/players`));
             const ds = calcScore(dh);
+            const dBJ = ds === 21 && dh.length === 2;
+
             snaps.forEach(d => {
                 const p = d.data();
                 if(p.status === 'stood' || p.status === 'busted') {
                     const ps = calcScore(p.hand);
                     let nb = p.bankroll;
-                    if (ps <= 21) {
-                         if (ds > 21 || ps > ds) nb += p.bet * (ps===21&&p.hand.length===2 ? 2.5 : 2);
-                         else if (ps === ds) nb += p.bet;
+                    const pBJ = ps === 21 && p.hand.length === 2;
+
+                    if (p.status === 'busted') {
+                        // Lost bet, bankroll stays same
+                    } else {
+                        if (pBJ) {
+                            if (dBJ) {
+                                // Both BJ -> Push (Return Bet)
+                                nb += p.bet;
+                            } else {
+                                // Player BJ, Dealer No BJ -> Win 1.5x (Return Bet + 1.5x Bet)
+                                nb += p.bet + (p.bet * 1.5);
+                            }
+                        } else {
+                            if (dBJ) {
+                                // Dealer BJ, Player No BJ -> Lose
+                            } else if (ds > 21) {
+                                // Dealer Bust -> Win 1x
+                                nb += p.bet * 2;
+                            } else if (ps > ds) {
+                                // Player wins -> Win 1x
+                                nb += p.bet * 2;
+                            } else if (ps === ds) {
+                                // Push -> Return Bet
+                                nb += p.bet;
+                            }
+                        }
                     }
                     batch.update(d.ref, { bankroll: nb });
                 }
