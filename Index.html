@@ -131,6 +131,7 @@
         const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
         let db, auth, gameId, userId, isHost = false;
         let localPlayerState = {}, allPlayersState = {}, currentGameState = {};
+        let isFinishingRound = false; // Guard against double execution
         const appId = 'classroom-blackjack'; // Fixed ID for standalone
 
         // Initialization
@@ -231,8 +232,8 @@
                 const pSnaps = await getDocs(pRef);
                 
                 pSnaps.forEach(p => {
-                    // Deal to ANYONE with a bet > 0, essentially forcing valid players into 'playing' state
                     const data = p.data();
+                    // Deal to anyone who has placed a bet (even if state isn't 'betPlaced' yet)
                     if (data.bet > 0 || data.status === 'betPlaced') {
                         t.update(p.ref, { hand: [deck.pop(), deck.pop()], status: 'playing' });
                     }
@@ -341,7 +342,7 @@
             currentGameState = g;
             renderHand(els.dHand, g.dealerHand, g.reveal, true);
             els.dScore.textContent = g.reveal ? calcScore(g.dealerHand) : '?';
-            updateControls(); // Consolidated UI Update
+            updateControls(); 
         }
 
         function handlePlayers(ps) {
@@ -369,14 +370,12 @@
                 renderHostGrid(ps);
                 // Auto-deal Logic
                 if (currentGameState.state === 'betting') {
-                    // Check if there are players and EVERY player is either 'betPlaced' or broke
                     const psList = Object.values(ps);
                     const ready = psList.length > 0 && psList.every(pl => pl.status === 'betPlaced' || (pl.status === 'waiting' && pl.bankroll === 0));
                     
                     if (ready) {
                         setTimeout(dealCards, 1500); 
                     } else if (psList.length > 0) {
-                        // If players exist but aren't ready, show force button
                         if(els.forceDealBtn) els.forceDealBtn.classList.remove('hidden');
                     }
                 }
@@ -385,10 +384,9 @@
                 const active = Object.values(ps).filter(pl => pl.status === 'playing');
                 if (currentGameState.state === 'playing' && active.length === 0) finishRound();
             }
-            updateControls(); // Consolidated UI Update
+            updateControls(); 
         }
 
-        // New function to handle UI visibility to prevent race conditions
         function updateControls() {
             const g = currentGameState;
             if (!g || !g.state) return;
@@ -407,7 +405,6 @@
                     els.betControls.classList.remove('hidden');
                     els.actControls.classList.add('hidden');
                     els.pStatus.textContent = "Place your bet!";
-                    // Init slider max
                     const max = Math.min(200, localPlayerState.bankroll);
                     els.betSlider.max = max > 0 ? max : 10;
                     if(parseInt(els.betSlider.value) > max) els.betSlider.value = max;
@@ -416,7 +413,6 @@
                     els.betControls.classList.add('hidden');
                     els.actControls.classList.remove('hidden');
                 } else {
-                    // Waiting, Finished, or other status
                     els.betControls.classList.add('hidden');
                     els.actControls.classList.add('hidden');
                     if (g.state === 'waiting') els.pStatus.textContent = "Waiting for host...";
@@ -446,19 +442,20 @@
         }
 
         async function finishRound() {
+            if (isFinishingRound) return; // Guard against race conditions
+            isFinishingRound = true;
+
             const gRef = doc(db, `games/${gameId}`);
             let g = (await getDoc(gRef)).data();
             let deck = g.deck, dh = g.dealerHand;
             
-            // Loop safety limiter for CodePen
+            // Loop safety limiter
             let safety = 0;
             while(calcScore(dh) < 17 && safety < 20) {
                 if(deck.length === 0) deck = shuffle(buildDeck());
                 dh.push(deck.pop());
                 safety++;
             }
-            
-            await updateDoc(gRef, { deck, dealerHand: dh, reveal: true });
             
             const batch = writeBatch(db);
             const snaps = await getDocs(collection(db, `games/${gameId}/players`));
@@ -473,36 +470,34 @@
                     const pBJ = ps === 21 && p.hand.length === 2;
 
                     if (p.status === 'busted') {
-                        // Lost bet, bankroll stays same
+                        // Lost
                     } else {
                         if (pBJ) {
                             if (dBJ) {
-                                // Both BJ -> Push (Return Bet)
-                                nb += p.bet;
+                                nb += p.bet; // Push (BJ vs BJ)
                             } else {
-                                // Player BJ, Dealer No BJ -> Win 1.5x (Return Bet + 1.5x Bet)
-                                nb += p.bet + (p.bet * 1.5);
+                                nb += p.bet + (p.bet * 1.5); // Win BJ 1.5x
                             }
                         } else {
                             if (dBJ) {
-                                // Dealer BJ, Player No BJ -> Lose
+                                // Lose (Player normal vs Dealer BJ)
                             } else if (ds > 21) {
-                                // Dealer Bust -> Win 1x
-                                nb += p.bet * 2;
+                                nb += p.bet * 2; // Win (Dealer Bust)
                             } else if (ps > ds) {
-                                // Player wins -> Win 1x
-                                nb += p.bet * 2;
+                                nb += p.bet * 2; // Win (Player > Dealer)
                             } else if (ps === ds) {
-                                // Push -> Return Bet
-                                nb += p.bet;
+                                nb += p.bet; // Push
                             }
                         }
                     }
                     batch.update(d.ref, { bankroll: nb });
                 }
             });
+            // Update game state in SAME batch to prevent race condition
+            batch.update(gRef, { deck, dealerHand: dh, reveal: true, state: 'finished' });
+            
             await batch.commit();
-            await updateDoc(gRef, { state: 'finished' });
+            isFinishingRound = false;
         }
 
         // Utils
