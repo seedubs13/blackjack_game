@@ -20,11 +20,20 @@
         .corner.top { top: 6px; left: 6px; }
         .corner.bottom { bottom: 6px; right: 6px; transform: rotate(180deg); }
         .card-back { background: repeating-linear-gradient(45deg, #4B5563, #4B5563 10px, #6B7280 10px, #6B7280 20px); }
-        .highlight-action { animation: pulse 1.5s infinite; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.6); }
+        /* Updated Highlight Action for better visibility */
+        .highlight-action { 
+            animation: pulse 1s infinite; 
+            box-shadow: 0 0 0 6px #F59E0B; /* Amber-500 */
+            border-color: #F59E0B !important;
+            transform: scale(1.1);
+            z-index: 10;
+            position: relative;
+        }
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); transform: scale(1.1); }
+            50% { transform: scale(1.15); }
+            70% { box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); transform: scale(1.1); }
         }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .kick-btn { z-index: 10; cursor: pointer; }
@@ -402,6 +411,12 @@
             // Player button states
             if (!isHost) {
                 if (g.state === 'betting' && localPlayerState.status === 'waiting') {
+                    if (localPlayerState.bankroll <= 0) {
+                        els.betControls.classList.add('hidden');
+                        els.actControls.classList.add('hidden');
+                        els.pStatus.textContent = "You're Broke 😢";
+                        return;
+                    }
                     els.betControls.classList.remove('hidden');
                     els.actControls.classList.add('hidden');
                     els.pStatus.textContent = "Place your bet!";
