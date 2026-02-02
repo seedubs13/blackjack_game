@@ -111,7 +111,8 @@
         </div>
     </div>
 
-    <div id="summary-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+    <!-- Summary Modal with Z-Index fix -->
+    <div id="summary-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center">
             <h2 class="text-2xl font-bold mb-6">Group Summary</h2>
             <div id="summary-content" class="space-y-4 text-left"></div>
@@ -596,9 +597,31 @@
         if(els.doubleBtn) els.doubleBtn.addEventListener('click', doubleDown);
         if(els.oddsBtn) els.oddsBtn.addEventListener('click', showOdds);
         if(els.summaryBtn) els.summaryBtn.addEventListener('click', () => {
-             let t = {A:0, B:0, C:0};
-             Object.values(allPlayersState).forEach(p => t[p.group]+=p.bankroll);
-             els.summary.innerHTML = `<div class="p-2 bg-red-100 mb-2">Group A: $${t.A}</div><div class="p-2 bg-blue-100 mb-2">Group B: $${t.B}</div><div class="p-2 bg-green-100">Group C: $${t.C}</div>`;
+             // New summary logic with counting and averages
+             let stats = {
+                 A: { total: 0, count: 0 },
+                 B: { total: 0, count: 0 },
+                 C: { total: 0, count: 0 }
+             };
+             
+             Object.values(allPlayersState).forEach(p => {
+                 if (stats[p.group]) {
+                     stats[p.group].total += p.bankroll;
+                     stats[p.group].count++;
+                 }
+             });
+
+             const getAvg = (g) => {
+                 const s = stats[g];
+                 if (s.count === 0) return 0;
+                 return Math.round(s.total / s.count);
+             };
+
+             els.summary.innerHTML = `
+                 <div class="p-2 bg-red-100 mb-2 font-bold text-lg">Group A Average: $${getAvg('A')}</div>
+                 <div class="p-2 bg-blue-100 mb-2 font-bold text-lg">Group B Average: $${getAvg('B')}</div>
+                 <div class="p-2 bg-green-100 font-bold text-lg">Group C Average: $${getAvg('C')}</div>
+             `;
              els.modal.classList.remove('hidden');
         });
         if(els.closeSummaryBtn) els.closeSummaryBtn.addEventListener('click', () => els.modal.classList.add('hidden'));
