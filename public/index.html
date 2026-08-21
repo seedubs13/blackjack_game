@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A teacher-hosted classroom blackjack game for up to 40 students.">
+    <title>Classroom Blackjack</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <main class="app-shell">
+        <section id="join-screen" class="panel join-panel" aria-labelledby="join-title">
+            <h1 id="join-title">Classroom Blackjack</h1>
+            <p class="muted">Join your teacher's game or create a new classroom game.</p>
+
+            <div class="form-stack">
+                <label for="player-name-input">Your name</label>
+                <input id="player-name-input" type="text" maxlength="40" autocomplete="name" placeholder="Enter your name">
+
+                <label for="game-id-input">Game code</label>
+                <input id="game-id-input" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Enter the 6-character code">
+
+                <fieldset>
+                    <legend>Select your group</legend>
+                    <div class="group-options">
+                        <label><input type="radio" name="group" value="A" checked> Group A</label>
+                        <label><input type="radio" name="group" value="B"> Group B</label>
+                        <label><input type="radio" name="group" value="C"> Group C</label>
+                    </div>
+                </fieldset>
+
+                <button id="join-game-btn" class="button button-primary" disabled>Join game</button>
+                <div class="separator" aria-hidden="true"><span>or</span></div>
+                <button id="create-game-btn" class="button button-success" disabled>Create new game (teacher)</button>
+            </div>
+
+            <p id="connection-status" class="status-line muted" role="status">Connecting…</p>
+            <p id="error-message" class="error-line" role="alert"></p>
+        </section>
+
+        <section id="game-area" class="hidden" aria-live="polite">
+            <div id="host-controls" class="panel host-panel hidden">
+                <div>
+                    <p class="eyebrow">Teacher controls</p>
+                    <h2>Game code: <strong id="game-id-display" class="game-code"></strong></h2>
+                    <p id="host-status" class="muted">Waiting for students to join.</p>
+                </div>
+                <div class="button-row">
+                    <button id="copy-code-btn" class="button button-secondary">Copy join link</button>
+                    <button id="deal-hand-btn" class="button button-success">Start betting</button>
+                    <button id="force-deal-btn" class="button button-danger hidden">Deal to ready players</button>
+                    <button id="show-summary-btn" class="button button-primary">Group summary</button>
+                </div>
+            </div>
+
+            <div id="game-message" class="notice hidden" role="status"></div>
+
+            <div class="table-layout">
+                <section class="table-section" aria-labelledby="dealer-title">
+                    <h2 id="dealer-title">Dealer's hand</h2>
+                    <div id="dealer-cards" class="card-row card-surface"></div>
+                    <p class="score-line">Score: <span id="dealer-score">?</span></p>
+                </section>
+
+                <section id="player-area" class="panel player-panel hidden" aria-labelledby="player-title">
+                    <h2 id="player-title">Your hand — <span id="local-player-name">Player</span></h2>
+                    <div id="player-cards" class="card-row"></div>
+                    <p class="score-line">Your score: <span id="player-score">0</span></p>
+                    <p class="money-line">Bankroll: $<span id="player-bankroll">1000</span> · Bet: $<span id="player-bet">0</span></p>
+                    <p id="player-status" class="player-status" role="status"></p>
+
+                    <div id="betting-controls" class="controls hidden">
+                        <label for="bet-amount">Bet amount: $<span id="bet-amount-value">50</span></label>
+                        <input type="range" id="bet-amount" min="10" max="200" value="50" step="10">
+                        <button id="place-bet-btn" class="button button-primary">Place bet</button>
+                    </div>
+
+                    <div id="action-controls" class="button-row centered hidden">
+                        <button id="hit-btn" class="button button-primary">Hit</button>
+                        <button id="stand-btn" class="button button-dark">Stand</button>
+                        <button id="double-down-btn" class="button button-warning">Double down</button>
+                        <button id="show-odds-btn" class="button button-secondary">Strategy hint</button>
+                    </div>
+                </section>
+
+                <section id="all-players-area" class="hidden" aria-labelledby="players-title">
+                    <h2 id="players-title">Students (<span id="player-count">0</span>/40)</h2>
+                    <div id="players-grid" class="players-grid"></div>
+                </section>
+            </div>
+        </section>
+    </main>
+
+    <dialog id="summary-modal" class="summary-dialog">
+        <h2>Group summary</h2>
+        <div id="summary-content" class="summary-content"></div>
+        <button id="close-summary-btn" class="button button-dark">Close</button>
+    </dialog>
+
+    <script type="module" src="/app.js"></script>
+</body>
+</html>

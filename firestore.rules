@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function gameData(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId)).data;
+    }
+
+    function isHost(gameId) {
+      return signedIn() && gameData(gameId).hostId == request.auth.uid;
+    }
+
+    function isHostAfter(gameId) {
+      return signedIn()
+        && getAfter(/databases/$(database)/documents/games/$(gameId)).data.hostId == request.auth.uid;
+    }
+
+    match /games/{gameId} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'hostId', 'hostName', 'state', 'dealerCards', 'dealerCardCount',
+          'dealerScore', 'reveal', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.hostId == request.auth.uid
+        && request.resource.data.hostName is string
+        && request.resource.data.hostName.size() > 0
+        && request.resource.data.hostName.size() <= 40
+        && request.resource.data.state == 'waiting'
+        && request.resource.data.dealerCards is list
+        && request.resource.data.dealerCards.size() == 0
+        && request.resource.data.dealerCardCount == 0
+        && request.resource.data.dealerScore == null
+        && request.resource.data.reveal == false
+        && request.resource.data.createdAt is int
+        && request.resource.data.updatedAt is int;
+
+      allow update: if isHost(gameId)
+        && request.resource.data.hostId == resource.data.hostId;
+      allow delete: if isHost(gameId);
+
+      match /private/{privateDocument} {
+        allow read: if isHost(gameId);
+        allow create, update, delete: if isHostAfter(gameId);
+      }
+
+      match /players/{playerId} {
+        allow read: if signedIn()
+          && (request.auth.uid == playerId || isHost(gameId));
+
+        allow create: if signedIn()
+          && request.auth.uid == playerId
+          && gameData(gameId).state in ['waiting', 'finished']
+          && request.resource.data.keys().hasOnly([
+            'name', 'group', 'bankroll', 'bet', 'hand', 'status',
+            'actionRequest', 'result'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 40
+          && request.resource.data.group in ['A', 'B', 'C']
+          && request.resource.data.bankroll == 1000
+          && request.resource.data.bet == 0
+          && request.resource.data.hand is list
+          && request.resource.data.hand.size() == 0
+          && request.resource.data.status == 'waiting'
+          && request.resource.data.actionRequest == null
+          && request.resource.data.result == '';
+
+        allow update: if isHost(gameId) || validStudentUpdate(gameId, playerId);
+        allow delete: if isHost(gameId);
+      }
+    }
+
+    function validStudentUpdate(gameId, playerId) {
+      return signedIn()
+        && request.auth.uid == playerId
+        && (validBetUpdate(gameId) || validActionRequest(gameId));
+    }
+
+    function validBetUpdate(gameId) {
+      return gameData(gameId).state == 'betting'
+        && resource.data.status == 'waiting'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['bet', 'bankroll', 'status'])
+        && request.resource.data.status == 'betPlaced'
+        && request.resource.data.bet is int
+        && request.resource.data.bet >= 10
+        && request.resource.data.bet <= 200
+        && request.resource.data.bet <= resource.data.bankroll
+        && request.resource.data.bankroll
+          == resource.data.bankroll - request.resource.data.bet;
+    }
+
+    function validActionRequest(gameId) {
+      return gameData(gameId).state == 'playing'
+        && resource.data.status == 'playing'
+        && resource.data.actionRequest == null
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['actionRequest'])
+        && request.resource.data.actionRequest is map
+        && request.resource.data.actionRequest.keys().hasOnly(['type', 'id'])
+        && request.resource.data.actionRequest.type in ['hit', 'stand', 'double']
+        && request.resource.data.actionRequest.id is string
+        && request.resource.data.actionRequest.id.size() > 0
+        && request.resource.data.actionRequest.id.size() <= 80
+        && (request.resource.data.actionRequest.type != 'double'
+          || (resource.data.hand.size() == 2
+            && resource.data.bankroll >= resource.data.bet));
+    }
+  }
+}
