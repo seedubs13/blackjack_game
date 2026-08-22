@@ -15,8 +15,11 @@ import {
 } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 import {
     buildDeck,
+    canUseStrategyHint,
     calcScore,
     getBestAction,
+    GROUP_LABELS,
+    groupLabel,
     isBlackjack,
     settleHand,
     shuffle,
@@ -372,7 +375,7 @@ function renderLocalPlayer() {
     const player = localPlayerState;
     if (!player.name) return;
 
-    els.local_player_name.textContent = `${player.name} (Group ${player.group})`;
+    els.local_player_name.textContent = `${player.name} (${groupLabel(player.group)})`;
     els.player_bankroll.textContent = player.bankroll;
     els.player_bet.textContent = player.bet;
     els.player_score.textContent = calcScore(player.hand);
@@ -394,7 +397,7 @@ function renderHostGrid(players) {
 
         const badge = document.createElement('span');
         badge.className = `group-badge group-${player.group.toLowerCase()}`;
-        badge.textContent = `Group ${player.group}`;
+        badge.textContent = groupLabel(player.group);
 
         const bankroll = document.createElement('p');
         bankroll.textContent = `Bank: $${player.bankroll}`;
@@ -446,6 +449,7 @@ function updateControls() {
 
     const player = localPlayerState;
     if (!player.name) return;
+    els.show_odds_btn.classList.toggle('hidden', !canUseStrategyHint(player.group));
     els.betting_controls.classList.add('hidden');
     els.action_controls.classList.add('hidden');
 
@@ -792,6 +796,7 @@ async function kickPlayer(playerId, playerName) {
 }
 
 function showStrategyHint() {
+    if (!canUseStrategyHint(localPlayerState.group)) return;
     const canDouble = localPlayerState.hand.length === 2 && localPlayerState.bankroll >= localPlayerState.bet;
     const action = getBestAction(localPlayerState.hand, currentGameState.dealerCards?.[0], canDouble);
     const target = action === 'double' ? els.double_down_btn : action === 'stand' ? els.stand_btn : els.hit_btn;
@@ -801,11 +806,9 @@ function showStrategyHint() {
 }
 
 function showSummary() {
-    const statistics = {
-        A: { total: 0, count: 0 },
-        B: { total: 0, count: 0 },
-        C: { total: 0, count: 0 },
-    };
+    const statistics = Object.fromEntries(
+        Object.keys(GROUP_LABELS).map((group) => [group, { total: 0, count: 0 }]),
+    );
     Object.values(allPlayersState).forEach((player) => {
         if (!statistics[player.group]) return;
         statistics[player.group].total += player.bankroll;
@@ -813,12 +816,12 @@ function showSummary() {
     });
 
     els.summary_content.replaceChildren();
-    for (const group of ['A', 'B', 'C']) {
+    for (const group of Object.keys(GROUP_LABELS)) {
         const row = document.createElement('div');
         row.className = `summary-row group-${group.toLowerCase()}`;
         const stats = statistics[group];
         const average = stats.count === 0 ? 0 : Math.round(stats.total / stats.count);
-        row.textContent = `Group ${group}: ${stats.count} student${stats.count === 1 ? '' : 's'} · $${average} average`;
+        row.textContent = `${groupLabel(group)}: ${stats.count} student${stats.count === 1 ? '' : 's'} · $${average} average`;
         els.summary_content.append(row);
     }
     els.summary_modal.showModal();
