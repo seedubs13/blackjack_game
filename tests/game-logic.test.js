@@ -10,6 +10,7 @@ import {
     isBlackjack,
     settleHand,
     shuffle,
+    summarizeGroups,
 } from '../public/game-logic.js';
 
 const card = (rank, suit = '♠') => ({ rank, suit });
@@ -82,4 +83,20 @@ test('strategy hints are available only to the beginner group', () => {
     assert.equal(canUseStrategyHint('A'), false);
     assert.equal(canUseStrategyHint('B'), false);
     assert.equal(canUseStrategyHint('C'), true);
+});
+
+test('group summary calculates average bankrolls and relative bar lengths', () => {
+    assert.deepEqual(summarizeGroups([
+        { group: 'A', bankroll: 1000 },
+        { group: 'A', bankroll: 1200 },
+        { group: 'B', bankroll: 550 },
+    ]), [
+        { group: 'A', label: 'Experienced', count: 2, average: 1100, barPercent: 100 },
+        { group: 'B', label: 'Understand the Game', count: 1, average: 550, barPercent: 50 },
+        { group: 'C', label: "No Clue What I'm Doing", count: 0, average: 0, barPercent: 0 },
+    ]);
+});
+
+test('group summary handles an empty class without invalid bar values', () => {
+    assert.ok(summarizeGroups([]).every((summary) => summary.average === 0 && summary.barPercent === 0));
 });

@@ -7,6 +7,7 @@ A teacher-hosted blackjack game designed for a class of up to 40 students. Stude
 - The teacher creates a game and keeps the teacher tab open.
 - Students open the teacher's join link, enter a name, and select a group. The link fills the six-character game code automatically.
 - The visible groups are **Experienced**, **Understand the Game**, and **No Clue What I'm Doing**. Only the last group receives the in-game strategy hint button.
+- The teacher's group summary displays a horizontal bar chart comparing each group's average bankroll, with exact averages and student counts.
 - Students can write only a valid bet or an action request for their own player record.
 - The teacher browser is the authoritative dealer. It owns the private shoe and hole card, processes student actions in batches, and settles the round.
 - Firestore Security Rules prevent students from changing hands, bankroll outcomes, game state, or private dealer data.

@@ -14,6 +14,36 @@ export function canUseStrategyHint(group) {
     return group === 'C';
 }
 
+export function summarizeGroups(players = []) {
+    const summaries = Object.keys(GROUP_LABELS).map((group) => ({
+        group,
+        label: groupLabel(group),
+        total: 0,
+        count: 0,
+    }));
+    const byGroup = Object.fromEntries(summaries.map((summary) => [summary.group, summary]));
+
+    for (const player of players) {
+        const summary = byGroup[player.group];
+        if (!summary || !Number.isFinite(player.bankroll)) continue;
+        summary.total += player.bankroll;
+        summary.count += 1;
+    }
+
+    const averages = summaries.map((summary) => (
+        summary.count === 0 ? 0 : Math.round(summary.total / summary.count)
+    ));
+    const highestAverage = Math.max(0, ...averages);
+
+    return summaries.map((summary, index) => ({
+        group: summary.group,
+        label: summary.label,
+        count: summary.count,
+        average: averages[index],
+        barPercent: highestAverage === 0 ? 0 : Math.round((averages[index] / highestAverage) * 100),
+    }));
+}
+
 export function buildDeck(deckCount = 6) {
     const deck = [];
     for (let copy = 0; copy < deckCount; copy += 1) {

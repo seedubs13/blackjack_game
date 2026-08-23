@@ -18,11 +18,11 @@ import {
     canUseStrategyHint,
     calcScore,
     getBestAction,
-    GROUP_LABELS,
     groupLabel,
     isBlackjack,
     settleHand,
     shuffle,
+    summarizeGroups,
 } from './game-logic.js';
 
 const firebaseConfig = {
@@ -806,22 +806,37 @@ function showStrategyHint() {
 }
 
 function showSummary() {
-    const statistics = Object.fromEntries(
-        Object.keys(GROUP_LABELS).map((group) => [group, { total: 0, count: 0 }]),
-    );
-    Object.values(allPlayersState).forEach((player) => {
-        if (!statistics[player.group]) return;
-        statistics[player.group].total += player.bankroll;
-        statistics[player.group].count += 1;
-    });
-
     els.summary_content.replaceChildren();
-    for (const group of Object.keys(GROUP_LABELS)) {
+    for (const summary of summarizeGroups(Object.values(allPlayersState))) {
         const row = document.createElement('div');
-        row.className = `summary-row group-${group.toLowerCase()}`;
-        const stats = statistics[group];
-        const average = stats.count === 0 ? 0 : Math.round(stats.total / stats.count);
-        row.textContent = `${groupLabel(group)}: ${stats.count} student${stats.count === 1 ? '' : 's'} · $${average} average`;
+        row.className = `summary-row group-${summary.group.toLowerCase()}`;
+        row.setAttribute('role', 'listitem');
+        row.setAttribute(
+            'aria-label',
+            `${summary.label}: $${summary.average} average across ${summary.count} student${summary.count === 1 ? '' : 's'}`,
+        );
+
+        const header = document.createElement('div');
+        header.className = 'summary-row-header';
+        const label = document.createElement('span');
+        label.className = 'summary-group-label';
+        label.textContent = summary.label;
+        const average = document.createElement('strong');
+        average.className = 'summary-average';
+        average.textContent = `$${summary.average.toLocaleString()} avg`;
+        header.append(label, average);
+
+        const bar = document.createElement('progress');
+        bar.className = 'summary-bar';
+        bar.max = 100;
+        bar.value = summary.barPercent;
+        bar.setAttribute('aria-hidden', 'true');
+
+        const count = document.createElement('small');
+        count.className = 'summary-count';
+        count.textContent = `${summary.count} student${summary.count === 1 ? '' : 's'}`;
+
+        row.append(header, bar, count);
         els.summary_content.append(row);
     }
     els.summary_modal.showModal();
