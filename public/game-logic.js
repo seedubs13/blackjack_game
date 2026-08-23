@@ -1,5 +1,18 @@
 export const SUITS = Object.freeze(['♠', '♣', '♥', '♦']);
 export const RANKS = Object.freeze(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']);
+export const GROUP_LABELS = Object.freeze({
+    A: 'Experienced',
+    B: 'Understand the Game',
+    C: "No Clue What I'm Doing",
+});
+
+export function groupLabel(group) {
+    return GROUP_LABELS[group] ?? group;
+}
+
+export function canUseStrategyHint(group) {
+    return group === 'C';
+}
 
 export function buildDeck(deckCount = 6) {
     const deck = [];

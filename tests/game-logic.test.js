@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
     buildDeck,
+    canUseStrategyHint,
     calcScore,
     getBestAction,
+    groupLabel,
     isBlackjack,
     settleHand,
     shuffle,
@@ -68,4 +70,16 @@ test('strategy hint recommends common hard-total actions', () => {
     assert.equal(getBestAction([card('10'), card('6')], card('10'), false), 'hit');
     assert.equal(getBestAction([card('10'), card('7')], card('10'), false), 'stand');
     assert.equal(getBestAction([card('5'), card('6')], card('6'), true), 'double');
+});
+
+test('group labels match the classroom experience choices', () => {
+    assert.equal(groupLabel('A'), 'Experienced');
+    assert.equal(groupLabel('B'), 'Understand the Game');
+    assert.equal(groupLabel('C'), "No Clue What I'm Doing");
+});
+
+test('strategy hints are available only to the beginner group', () => {
+    assert.equal(canUseStrategyHint('A'), false);
+    assert.equal(canUseStrategyHint('B'), false);
+    assert.equal(canUseStrategyHint('C'), true);
 });
