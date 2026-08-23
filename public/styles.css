@@ -167,7 +167,15 @@ fieldset {
 .summary-dialog { width: min(450px, calc(100% - 2rem)); border: 0; border-radius: 16px; padding: 1.5rem; box-shadow: 0 24px 80px rgb(15 23 42 / 32%); }
 .summary-dialog::backdrop { background: rgb(15 23 42 / 55%); }
 .summary-content { display: grid; gap: .7rem; margin: 1rem 0 1.25rem; }
-.summary-row { padding: .8rem; border-radius: 10px; font-weight: 800; }
+.summary-row { display: grid; gap: .42rem; padding: .8rem; border-radius: 10px; font-weight: 800; }
+.summary-row-header { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.summary-group-label { overflow-wrap: anywhere; }
+.summary-average { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.summary-bar { width: 100%; height: .9rem; overflow: hidden; border: 0; border-radius: 999px; background: rgb(255 255 255 / 72%); }
+.summary-bar::-webkit-progress-bar { border-radius: 999px; background: rgb(255 255 255 / 72%); }
+.summary-bar::-webkit-progress-value { border-radius: 999px; background: currentColor; }
+.summary-bar::-moz-progress-bar { border-radius: 999px; background: currentColor; }
+.summary-count { font-weight: 700; }
 
 @media (max-width: 760px) {
     .app-shell { width: min(100% - 1rem, 1180px); padding-top: .6rem; }
